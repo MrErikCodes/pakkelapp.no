@@ -1,65 +1,201 @@
-import Image from "next/image";
+"use client";
+
+import { useState, useCallback, useEffect, useRef } from "react";
+import dynamic from "next/dynamic";
+import { parseQRData } from "./lib/parseQR";
+import { generateLabelPDF, downloadLabelPDF, getLabelBlobURL } from "./lib/generateLabel";
+import { LabelData } from "./lib/types";
+
+const QRScanner = dynamic(() => import("./components/QRScanner"), {
+  ssr: false,
+});
+
+function loadImageAsDataURL(src: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return reject(new Error("no ctx"));
+      ctx.drawImage(img, 0, 0);
+      resolve(canvas.toDataURL("image/png"));
+    };
+    img.onerror = reject;
+    img.src = src;
+  });
+}
 
 export default function Home() {
+  const [labelData, setLabelData] = useState<LabelData | null>(null);
+  const [rawText, setRawText] = useState("");
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  const logoRef = useRef<string | null>(null);
+
+  // Pre-load the Posten logo
+  useEffect(() => {
+    loadImageAsDataURL("/posten.png")
+      .then((url) => { logoRef.current = url; })
+      .catch(() => {});
+  }, []);
+
+  // Generate PDF preview when label data changes
+  useEffect(() => {
+    if (labelData) {
+      const url = getLabelBlobURL(labelData, logoRef.current);
+      setPdfUrl(url);
+      return () => URL.revokeObjectURL(url);
+    } else {
+      setPdfUrl(null);
+    }
+  }, [labelData]);
+
+  const handleScan = useCallback((data: string) => {
+    setRawText(data);
+    const parsed = parseQRData(data);
+    setLabelData(parsed);
+  }, []);
+
+  const handleDownloadPDF = () => {
+    if (labelData) {
+      downloadLabelPDF(labelData, logoRef.current);
+    }
+  };
+
+  const handleReset = () => {
+    setLabelData(null);
+    setRawText("");
+    setPdfUrl(null);
+  };
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
+    <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
+      {/* Header */}
+      <header className="border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 print:hidden">
+        <div className="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between">
+          <div>
+            <h1 className="text-xl font-bold text-zinc-900 dark:text-white">
+              <span className="text-[#E32D22]">Pakkelapp</span>.no
+            </h1>
+            <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
+              Skann QR-kode fra Posten/Bring-appen og generer adresselapp
+            </p>
+          </div>
+          {labelData && (
+            <button
+              onClick={handleReset}
+              className="text-sm text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors"
             >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+              Ny skanning
+            </button>
+          )}
+        </div>
+      </header>
+
+      <main className="max-w-4xl mx-auto px-4 py-8">
+        {!labelData ? (
+          <div className="space-y-6">
+            <div className="text-center mb-8">
+              <h2 className="text-2xl font-bold text-zinc-800 dark:text-zinc-100">
+                Skann QR-koden fra Posten-appen
+              </h2>
+              <p className="text-zinc-500 dark:text-zinc-400 mt-2 text-sm max-w-md mx-auto">
+                Last opp et skjermbilde av QR-koden, bruk kameraet, eller lim
+                inn QR-teksten direkte.
+              </p>
+            </div>
+            <QRScanner onScan={handleScan} />
+          </div>
+        ) : (
+          <div className="space-y-6">
+            {/* Action buttons */}
+            <div className="flex gap-3 justify-center print:hidden">
+              <button
+                onClick={handleDownloadPDF}
+                className="flex items-center gap-2 px-6 py-3 bg-[#E32D22] hover:bg-[#c9261d] text-white rounded-lg font-medium transition-colors shadow-md"
+              >
+                <svg
+                  className="w-5 h-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                  />
+                </svg>
+                Last ned PDF
+              </button>
+              <button
+                onClick={() => {
+                  if (labelData) {
+                    const doc = generateLabelPDF(labelData, logoRef.current);
+                    doc.autoPrint();
+                    const blob = doc.output("blob");
+                    const url = URL.createObjectURL(blob);
+                    window.open(url);
+                  }
+                }}
+                className="flex items-center gap-2 px-6 py-3 bg-zinc-700 hover:bg-zinc-800 text-white rounded-lg font-medium transition-colors"
+              >
+                <svg
+                  className="w-5 h-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"
+                  />
+                </svg>
+                Skriv ut
+              </button>
+            </div>
+
+            {/* PDF preview */}
+            {pdfUrl && (
+              <div className="flex justify-center print:m-0">
+                <iframe
+                  src={pdfUrl}
+                  className="w-full max-w-lg border border-zinc-300 dark:border-zinc-700 rounded-lg"
+                  style={{ height: "80vh", minHeight: "600px" }}
+                  title="Label preview"
+                />
+              </div>
+            )}
+
+            {/* Raw data (collapsible) */}
+            <details className="max-w-xl mx-auto print:hidden">
+              <summary className="text-sm text-zinc-500 dark:text-zinc-400 cursor-pointer hover:text-zinc-700 dark:hover:text-zinc-300 text-center">
+                Vis r&aring;data fra QR-kode
+              </summary>
+              <pre className="mt-3 p-4 bg-zinc-100 dark:bg-zinc-800 rounded-lg text-xs font-mono overflow-x-auto whitespace-pre-wrap break-all text-zinc-700 dark:text-zinc-300">
+                {rawText}
+              </pre>
+            </details>
+          </div>
+        )}
+      </main>
+
+      <footer className="border-t border-zinc-200 dark:border-zinc-800 mt-auto print:hidden">
+        <div className="max-w-4xl mx-auto px-4 py-4 text-center text-xs text-zinc-400 space-y-1">
+          <p>Alt skjer lokalt i nettleseren. Ingen data sendes til noen server.</p>
+          <p>
+            Laget av Nilsen Konsult (931405861MVA) &mdash;{" "}
+            <a href="mailto:erik@nilsenkonsult.no" className="underline hover:text-zinc-300">
+              erik@nilsenkonsult.no
+            </a>
           </p>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
+      </footer>
     </div>
   );
 }

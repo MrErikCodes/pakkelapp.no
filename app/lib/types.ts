@@ -1,0 +1,35 @@
+export interface LabelData {
+  label: string;
+  consignorName: string;
+  consignorAddress: string;
+  consignorPostcode: string;
+  consignorCity: string;
+  consignorCountry: string;
+  consigneeName: string;
+  consigneeAttention: string;
+  consigneeAddress: string;
+  date: string;
+  postcode: string;
+  city: string;
+  postalAddress: string;
+  phoneNumber: string;
+  addressCountry: string;
+  licensePlate: string;
+  numberOfParcels: string;
+  weight: string;
+  volume: string;
+  consignmentId: string;
+  customerNumber: string;
+  transportInstructions: string;
+  additionalServices: string;
+  productName: string;
+  productId: string;
+  priorityCode: string;
+  licensePlateBarcode: string;
+  recipientReference: string;
+  senderReference: string;
+  deliveryInstructions: string;
+  codAmount: string;
+  bankAccount: string;
+  kidCodReference: string;
+}

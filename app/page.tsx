@@ -6,6 +6,18 @@ import { parseQRData } from "./lib/parseQR";
 import { generateLabelPDF, downloadLabelPDF, getLabelBlobURL } from "./lib/generateLabel";
 import { LabelData } from "./lib/types";
 
+declare global {
+  interface Window {
+    rybbit?: { event: (name: string, properties?: Record<string, string>) => void };
+  }
+}
+
+function trackEvent(name: string, props?: Record<string, string>) {
+  if (typeof window !== "undefined" && window.rybbit && typeof window.rybbit.event === "function") {
+    window.rybbit.event(name, props);
+  }
+}
+
 const QRScanner = dynamic(() => import("./components/QRScanner"), {
   ssr: false,
 });
@@ -56,11 +68,13 @@ export default function Home() {
     setRawText(data);
     const parsed = parseQRData(data);
     setLabelData(parsed);
+    trackEvent("qr_scanned", { product: parsed.productName || "unknown" });
   }, []);
 
   const handleDownloadPDF = () => {
     if (labelData) {
       downloadLabelPDF(labelData, logoRef.current);
+      trackEvent("pdf_downloaded");
     }
   };
 
@@ -68,10 +82,27 @@ export default function Home() {
     setLabelData(null);
     setRawText("");
     setPdfUrl(null);
+    trackEvent("new_scan");
+  };
+
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    name: "Pakkelapp.no",
+    url: "https://pakkelapp.no",
+    description: "Skann QR-koden fra Posten/Bring-appen og generer en adresselapp som PDF. Gratis, ingen registrering.",
+    applicationCategory: "UtilityApplication",
+    operatingSystem: "Any",
+    offers: { "@type": "Offer", price: "0", priceCurrency: "NOK" },
+    author: { "@type": "Organization", name: "Nilsen Konsult" },
   };
 
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       {/* Header */}
       <header className="border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 print:hidden">
         <div className="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between">
@@ -103,6 +134,17 @@ export default function Home() {
               </h2>
               <p className="text-zinc-500 dark:text-zinc-400 mt-2 text-sm max-w-md mx-auto">
                 Last opp et skjermbilde av QR-koden eller bruk kameraet.
+              </p>
+            </div>
+            <div className="max-w-md mx-auto text-center text-sm text-zinc-500 dark:text-zinc-400 space-y-2 mb-4">
+              <p>
+                Posten/Bring lar deg levere pakker i pakkeboks, men gir deg kun
+                en QR-kode og ingen adresselapp. Hvordan skal pakken vite hvor
+                den skal?
+              </p>
+              <p>
+                Denne tjenesten fikser det. Skann QR-koden, og du har en ferdig
+                adresselapp klar til utskrift.
               </p>
             </div>
             <QRScanner onScan={handleScan} />
@@ -138,6 +180,7 @@ export default function Home() {
                     const blob = doc.output("blob");
                     const url = URL.createObjectURL(blob);
                     window.open(url);
+                    trackEvent("pdf_printed");
                   }
                 }}
                 className="flex items-center gap-2 px-6 py-3 bg-zinc-700 hover:bg-zinc-800 text-white rounded-lg font-medium transition-colors"

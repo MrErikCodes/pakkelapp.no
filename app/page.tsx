@@ -86,7 +86,7 @@ export default function Home() {
           {labelData && (
             <button
               onClick={handleReset}
-              className="text-sm text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors"
+              className="px-4 py-2 text-sm font-medium bg-zinc-200 hover:bg-zinc-300 dark:bg-zinc-700 dark:hover:bg-zinc-600 text-zinc-800 dark:text-white rounded-lg transition-colors"
             >
               Ny skanning
             </button>
@@ -102,8 +102,7 @@ export default function Home() {
                 Skann QR-koden fra Posten-appen
               </h2>
               <p className="text-zinc-500 dark:text-zinc-400 mt-2 text-sm max-w-md mx-auto">
-                Last opp et skjermbilde av QR-koden, bruk kameraet, eller lim
-                inn QR-teksten direkte.
+                Last opp et skjermbilde av QR-koden eller bruk kameraet.
               </p>
             </div>
             <QRScanner onScan={handleScan} />

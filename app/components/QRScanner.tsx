@@ -31,7 +31,14 @@ function decodeQRFromImage(file: File): Promise<string> {
           return;
         }
       }
-      reject(new Error("Fant ingen QR-kode i bildet. Prøv å lime inn teksten direkte."));
+      const funnyErrors = [
+        "Fant ingen QR-kode i bildet. Er du sikker på at det ikke er et bilde av katten din?",
+        "Ingen QR-kode funnet. Prøv å ta bildet litt nærmere, vi er ikke NASA.",
+        "QR-koden gjemmer seg visst. Prøv et annet bilde!",
+        "Beklager, dette bildet inneholder 0% QR-kode. Prøv igjen!",
+        "Hmm, finner ingen QR-kode. Sjekk at bildet faktisk har en QR-kode og ikke bare et fint mønster.",
+      ];
+      reject(new Error(funnyErrors[Math.floor(Math.random() * funnyErrors.length)]));
     };
     img.onerror = () => reject(new Error("Kunne ikke laste bildet"));
     img.src = URL.createObjectURL(file);
@@ -140,7 +147,6 @@ export default function QRScanner({ onScan }: QRScannerProps) {
           [
             { key: "upload", label: "Last opp bilde" },
             { key: "camera", label: "Kamera" },
-            { key: "text", label: "Lim inn tekst" },
           ] as const
         ).map((tab) => (
           <button
@@ -223,25 +229,6 @@ export default function QRScanner({ onScan }: QRScannerProps) {
               Stopp kamera
             </button>
           )}
-        </div>
-      )}
-
-      {/* Text paste mode */}
-      {mode === "text" && (
-        <div className="space-y-3">
-          <textarea
-            value={textInput}
-            onChange={(e) => setTextInput(e.target.value)}
-            placeholder="Lim inn QR-kode tekst her (Label=1|ConsignorName=...)"
-            className="w-full h-40 p-3 border border-zinc-300 dark:border-zinc-600 rounded-xl bg-white dark:bg-zinc-800 text-sm font-mono resize-none focus:outline-none focus:ring-2 focus:ring-red-400"
-          />
-          <button
-            onClick={handleTextSubmit}
-            disabled={!textInput.trim()}
-            className="w-full py-3 bg-red-600 hover:bg-red-700 disabled:bg-zinc-400 text-white rounded-lg font-medium transition-colors"
-          >
-            Generer pakkelapp
-          </button>
         </div>
       )}
 
